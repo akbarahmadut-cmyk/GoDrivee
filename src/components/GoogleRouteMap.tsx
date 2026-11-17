@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   APILoadingStatus,
   AdvancedMarker,
@@ -10,10 +18,11 @@ import {
   useMapsLibrary,
 } from '@vis.gl/react-google-maps';
 import { Map as GoogleMap } from '@vis.gl/react-google-maps';
-import { Crosshair, Navigation } from 'lucide-react';
+import { Crosshair, ExternalLink, Navigation } from 'lucide-react';
 import {
   DRIVER_OFFSET_KM,
   SERVICE_RADIUS_KM,
+  buildGoogleMapsDirectionsUrl,
   haversineKm,
   interpolateAlongPath,
   isQuotaOrAuthError,
@@ -22,6 +31,8 @@ import {
   type SelectedLocation,
   type ServiceId,
 } from '../data/jalanKitaData';
+
+export const MapsAvailabilityContext = createContext<boolean>(false);
 
 export interface ComputedRouteStats {
   distanceKm: number;
@@ -477,6 +488,7 @@ export function GoogleRouteMap({
   onRouteComputed,
   tracking,
 }: GoogleRouteMapProps) {
+  const mapsAvailable = useContext(MapsAvailabilityContext);
   const apiStatus = useApiLoadingStatus();
   const [routeStats, setRouteStats] = useState<ComputedRouteStats | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
@@ -499,19 +511,38 @@ export function GoogleRouteMap({
     destination.coords ?? { lat: -5.0, lng: 120.15 };
 
   if (
+    !mapsAvailable ||
     apiStatus === APILoadingStatus.FAILED ||
     apiStatus === APILoadingStatus.AUTH_FAILURE
   ) {
+    const externalUrl = buildGoogleMapsDirectionsUrl(
+      origin,
+      destination,
+      travelMode === 'DRIVING' ? 'driving' : 'two-wheeler'
+    );
     return (
       <div
-        className={`w-full ${heightClass} rounded-2xl border border-[#DCE2E4] bg-[#EDF2F0] flex flex-col items-center justify-center p-5 text-center space-y-1.5`}
+        className={`w-full min-h-[224px] ${heightClass} rounded-2xl border border-[#DCE2E4] bg-[#EDF2F0] flex flex-col items-center justify-center p-5 text-center space-y-2.5`}
       >
         <div className="text-sm font-semibold text-[#172124]">
-          Peta Google Maps tidak dapat dimuat
+          {!mapsAvailable
+            ? 'Peta interaktif Google Maps belum aktif'
+            : 'Peta Google Maps tidak dapat dimuat'}
         </div>
         <p className="text-xs text-[#5B676D] max-w-sm">
-          Periksa koneksi internet atau konfigurasi API key Google Maps Platform.
+          {!mapsAvailable
+            ? 'Aktifkan Google Maps Platform pada pengaturan applet atau muat ulang halaman untuk menampilkan peta rute.'
+            : 'Periksa koneksi internet atau konfigurasi API key Google Maps Platform.'}
         </p>
+        <a
+          href={externalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-h-[40px] px-4 py-2 rounded-xl bg-white border border-[#DCE2E4] hover:bg-[#FAFDFC] text-xs font-semibold text-[#0B7A6B] inline-flex items-center gap-1.5 transition-colors"
+        >
+          Lihat rute di Google Maps
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
       </div>
     );
   }

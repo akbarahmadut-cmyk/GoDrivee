@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
+  Bell,
+  BellOff,
   Check,
   Clock,
   ExternalLink,
@@ -21,9 +23,19 @@ import {
   type LiveDriverTelemetry,
 } from './GoogleRouteMap';
 import { ServiceIcon } from './ServiceIcon';
+import type { OrderNotificationPermission } from '../hooks/useOrderNotifications';
+
+interface TrackOrderNotificationsProp {
+  isSupported: boolean;
+  permission: OrderNotificationPermission;
+  enabled: boolean;
+  onEnable: () => void | Promise<void>;
+  onToggle: () => void;
+}
 
 interface TrackOrderViewProps {
   order: OrderRecord;
+  notifications: TrackOrderNotificationsProp;
   onRateDriver: (orderId: number, stars: number) => void;
   onSendMessage: (orderId: number, text: string) => void;
   onBackHome: () => void;
@@ -38,6 +50,7 @@ const PICKUP_QUICK_REPLIES = [
 
 export function TrackOrderView({
   order,
+  notifications,
   onRateDriver,
   onSendMessage,
   onBackHome,
@@ -236,6 +249,60 @@ export function TrackOrderView({
                 {SERVICE_RADIUS_KM} km dari titik jemput.
               </p>
             ) : null}
+          </div>
+
+          {/* Browser Notification Opt-in / Toggle Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E4E8EA] flex items-center justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  notifications.enabled
+                    ? 'bg-[#E3F5F2] text-[#0B7A6B]'
+                    : 'bg-[#F2F5F5] text-[#5B676D]'
+                }`}
+              >
+                {notifications.enabled ? (
+                  <Bell className="w-5 h-5" />
+                ) : (
+                  <BellOff className="w-5 h-5" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-[#172124]">
+                  Notifikasi Status Pesanan
+                </div>
+                <p className="text-xs text-[#5B676D] mt-0.5 leading-relaxed">
+                  {!notifications.isSupported
+                    ? 'Browser ini belum mendukung notifikasi web.'
+                    : notifications.permission === 'denied'
+                      ? 'Izin notifikasi diblokir browser. Buka pengaturan situs atau buka aplikasi di tab baru untuk mengizinkan.'
+                      : notifications.enabled
+                        ? 'Aktif — update tahap pesanan akan muncul di notifikasi browser meski tab diminimalkan.'
+                        : notifications.permission === 'granted'
+                          ? 'Dijeda — aktifkan kembali untuk menerima pembaruan tahap pesanan.'
+                          : 'Aktifkan notifikasi browser agar tetap menerima update status meski aplikasi tidak terbuka aktif.'}
+                </p>
+              </div>
+            </div>
+
+            {notifications.isSupported &&
+              notifications.permission !== 'denied' && (
+                <button
+                  type="button"
+                  onClick={
+                    notifications.permission === 'granted'
+                      ? notifications.onToggle
+                      : () => void notifications.onEnable()
+                  }
+                  className={`min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                    notifications.enabled
+                      ? 'bg-[#F2F5F5] hover:bg-[#E6ECEB] text-[#172124]'
+                      : 'bg-[#0F9D8A] hover:bg-[#0B7A6B] text-white'
+                  }`}
+                >
+                  {notifications.enabled ? 'Matikan' : 'Aktifkan'}
+                </button>
+              )}
           </div>
         </div>
 

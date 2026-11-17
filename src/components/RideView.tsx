@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
 import { ArrowUpDown, ExternalLink, AlertCircle } from 'lucide-react';
 import {
   SERVICE_RADIUS_KM,
@@ -12,6 +12,7 @@ import {
 } from '../data/jalanKitaData';
 import {
   GoogleRouteMap,
+  MapsAvailabilityContext,
   type ComputedRouteStats,
 } from './GoogleRouteMap';
 import { LocationPickerField } from './LocationPickerField';
@@ -45,6 +46,7 @@ export function RideView({
   onShowToast,
 }: RideViewProps) {
   const meta = SERVICES.find((s) => s.id === service)!;
+  const mapsAvailable = useContext(MapsAvailabilityContext);
   const [routeStats, setRouteStats] = useState<ComputedRouteStats | null>(null);
 
   const handleRouteComputed = useCallback((stats: ComputedRouteStats) => {
@@ -155,7 +157,9 @@ export function RideView({
                 </div>
                 <div className="text-xs sm:text-sm text-[#5B676D] font-num">
                   {!coordsReady
-                    ? 'Memuat koordinat Google Maps...'
+                    ? mapsAvailable
+                      ? 'Memuat koordinat Google Maps...'
+                      : 'Menunggu aktivasi Google Maps atau pilih Lokasi GPS'
                     : outOfArea
                       ? `Di luar area layanan (radius ${SERVICE_RADIUS_KM} km)`
                       : sameLocation

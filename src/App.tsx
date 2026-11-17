@@ -37,16 +37,29 @@ import { TrackOrderView } from './components/TrackOrderView';
 import { ActivityView } from './components/ActivityView';
 import { WalletView } from './components/WalletView';
 import { OfflineIndicator } from './components/PWAControls';
+import { MapsAvailabilityContext } from './components/GoogleRouteMap';
+import { useOrderNotifications } from './hooks/useOrderNotifications';
 
-const GOOGLE_MAPS_API_KEY =
+const RAW_MAPS_KEY =
   (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ?? '';
+const GOOGLE_MAPS_API_KEY =
+  RAW_MAPS_KEY && RAW_MAPS_KEY !== 'MY_GOOGLE_MAPS_API_KEY' ? RAW_MAPS_KEY : '';
 
 interface LocationChoice {
   presetId: string;
   custom?: SelectedLocation;
 }
 
-function JalanKitaShell({ quotaExceeded }: { quotaExceeded: boolean }) {
+function JalanKitaShell({
+  quotaExceeded,
+  mapsMissing,
+  onForceRefresh,
+}: {
+  quotaExceeded: boolean;
+  mapsMissing: boolean;
+  onForceRefresh: () => void;
+}) {
+  const [mapsNoticeDismissed, setMapsNoticeDismissed] = useState(false);
   const {
     placesReady,
     resolvePresetById,
@@ -105,6 +118,15 @@ function JalanKitaShell({ quotaExceeded }: { quotaExceeded: boolean }) {
   const toastTimerRef = useRef<number | null>(null);
   const chatReplyTimersRef = useRef<number[]>([]);
   const nextOrderIdRef = useRef<number>(1);
+  const {
+    isSupported: notificationsSupported,
+    permission: notificationPermission,
+    enabled: notificationsEnabled,
+    requestAndEnable: requestOrderNotifications,
+    toggleEnabled: toggleOrderNotifications,
+    notifyOrderStage,
+  } = useOrderNotifications();
+  const prevOrderStepsRef = useRef<Record<number, number>>({});
 
   useEffect(() => {
     return () => {
@@ -195,6 +217,38 @@ function JalanKitaShell({ quotaExceeded }: { quotaExceeded: boolean }) {
     }, 2600);
     return () => window.clearInterval(interval);
   }, [hasRunningOrder]);
+
+  // Trigger browser notification whenever an order advances to a new stage
+  useEffect(() => {
+    const prevSteps = prevOrderStepsRef.current;
+    orders.forEach((order) => {
+      const previousStep = prevSteps[order.id];
+      if (previousStep !== undefined && order.step > previousStep) {
+        const svcName =
+          SERVICES.find((s) => s.id === order.svc)?.name ?? 'GoDrive';
+        const isCompleted = order.step >= order.steps.length;
+        if (isCompleted) {
+          notifyOrderStage(
+            `${svcName} · Pesanan Selesai`,
+            `${order.label} telah selesai.`,
+            `godrive-order-${order.id}`
+          );
+        } else {
+          const stageLabel = order.steps[order.step] ?? 'Pembaruan status';
+          const body =
+            order.step === 1 && order.svc !== 'sedekah'
+              ? `${order.drv[0]} (${order.drv[1]}) · ${order.label}`
+              : order.label;
+          notifyOrderStage(
+            `${svcName} · ${stageLabel}`,
+            body,
+            `godrive-order-${order.id}`
+          );
+        }
+      }
+      prevSteps[order.id] = order.step;
+    });
+  }, [orders, notifyOrderStage]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -746,6 +800,30 @@ function JalanKitaShell({ quotaExceeded }: { quotaExceeded: boolean }) {
         return (
           <TrackOrderView
             order={order}
+            notifications={{
+              isSupported: notificationsSupported,
+              permission: notificationPermission,
+              enabled: notificationsEnabled,
+              onEnable: async () => {
+                const res = await requestOrderNotifications();
+                if (res === 'granted') {
+                  showToast('Notifikasi status pesanan diaktifkan.');
+                } else if (res === 'denied') {
+                  showToast(
+                    'Izin notifikasi diblokir browser. Aktifkan di pengaturan situs.'
+                  );
+                }
+              },
+              onToggle: () => {
+                const next = !notificationsEnabled;
+                toggleOrderNotifications();
+                showToast(
+                  next
+                    ? 'Notifikasi status pesanan diaktifkan.'
+                    : 'Notifikasi status pesanan dijeda.'
+                );
+              },
+            }}
             onRateDriver={handleRateDriver}
             onSendMessage={handleSendOrderMessage}
             onBackHome={() => switchRootTab('home')}
@@ -774,6 +852,31 @@ function JalanKitaShell({ quotaExceeded }: { quotaExceeded: boolean }) {
             </a>{' '}
             for instructions to update your account.
           </span>
+        </div>
+      )}
+
+      {/* Non-blocking Maps key notice with hard-reload / SW cache refresh */}
+      {mapsMissing && !mapsNoticeDismissed && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-950 px-4 py-2 text-xs md:text-sm flex flex-wrap items-center justify-center gap-2.5">
+          <span>
+            Kunci Google Maps belum terbaca di sesi ini. Layanan Go Food, Go Shop, Go Sedekah, dan Dompet tetap dapat digunakan.
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onForceRefresh}
+              className="px-3 py-1 rounded-lg bg-amber-900 text-white text-xs font-semibold hover:bg-amber-800 transition-colors cursor-pointer"
+            >
+              Muat Ulang
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapsNoticeDismissed(true)}
+              className="px-2 py-1 rounded-lg text-xs font-medium text-amber-900 hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
 
@@ -954,27 +1057,48 @@ export default function App() {
       window.removeEventListener('gmp-quota-exceeded', onQuotaExceeded);
   }, []);
 
+  const handleForceRefresh = useCallback(async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch {
+      // Ignore cache clear failures and reload anyway
+    }
+    window.location.reload();
+  }, []);
+
   if (!GOOGLE_MAPS_API_KEY) {
     return (
-      <div className="min-h-screen bg-[#F5F7F7] flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white rounded-2xl p-6 border border-[#E4E8EA] text-center space-y-2">
-          <h1 className="text-lg font-bold text-[#172124]">GoDrive</h1>
-          <p className="text-sm text-[#5B676D]">
-            Kunci API Google Maps Platform belum tersedia pada lingkungan aplikasi. Silakan muat ulang atau aktifkan Google Maps di pengaturan applet.
-          </p>
-        </div>
-      </div>
+      <MapsAvailabilityContext.Provider value={false}>
+        <JalanKitaShell
+          quotaExceeded={quotaExceeded}
+          mapsMissing={true}
+          onForceRefresh={() => void handleForceRefresh()}
+        />
+      </MapsAvailabilityContext.Provider>
     );
   }
 
   return (
-    <APIProvider
-      apiKey={GOOGLE_MAPS_API_KEY}
-      language="id"
-      region="ID"
-      libraries={['places', 'routes', 'marker']}
-    >
-      <JalanKitaShell quotaExceeded={quotaExceeded} />
-    </APIProvider>
+    <MapsAvailabilityContext.Provider value={true}>
+      <APIProvider
+        apiKey={GOOGLE_MAPS_API_KEY}
+        language="id"
+        region="ID"
+        libraries={['places', 'routes', 'marker']}
+      >
+        <JalanKitaShell
+          quotaExceeded={quotaExceeded}
+          mapsMissing={false}
+          onForceRefresh={() => void handleForceRefresh()}
+        />
+      </APIProvider>
+    </MapsAvailabilityContext.Provider>
   );
 }

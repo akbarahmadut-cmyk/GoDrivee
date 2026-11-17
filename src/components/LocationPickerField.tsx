@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { LocateFixed, Search, X } from 'lucide-react';
 import {
   PRESET_PLACES,
@@ -6,6 +6,7 @@ import {
   type SelectedLocation,
 } from '../data/jalanKitaData';
 import { usePlaceAutocomplete } from '../hooks/usePlacesResolver';
+import { MapsAvailabilityContext } from './GoogleRouteMap';
 
 interface LocationPickerFieldProps {
   id: string;
@@ -26,6 +27,7 @@ export function LocationPickerField({
   onSelectCustom,
   onError,
 }: LocationPickerFieldProps) {
+  const mapsAvailable = useContext(MapsAvailabilityContext);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
@@ -137,13 +139,18 @@ export function LocationPickerField({
             />
           </div>
 
-          {(isLoading || suggestions.length > 0) && (
-            <div className="rounded-xl border border-[#DCE2E4] bg-white shadow-md overflow-hidden divide-y divide-[#F0F3F4] max-h-56 overflow-y-auto">
-              {isLoading && (
-                <div className="px-3.5 py-2.5 text-xs text-[#6B7780]">
-                  Mencari lokasi di Google Maps...
-                </div>
-              )}
+          {!mapsAvailable ? (
+            <div className="rounded-xl border border-[#DCE2E4] bg-[#F5F7F7] px-3.5 py-2.5 text-xs text-[#5B676D]">
+              Pencarian Google Maps belum aktif. Pilih dari daftar lokasi preset atau gunakan tombol Lokasi GPS.
+            </div>
+          ) : (
+            (isLoading || suggestions.length > 0) && (
+              <div className="rounded-xl border border-[#DCE2E4] bg-white shadow-md overflow-hidden divide-y divide-[#F0F3F4] max-h-56 overflow-y-auto">
+                {isLoading && (
+                  <div className="px-3.5 py-2.5 text-xs text-[#6B7780]">
+                    Mencari lokasi di Google Maps...
+                  </div>
+                )}
               {suggestions.map((s, idx) => (
                 <button
                   key={idx}
@@ -170,6 +177,7 @@ export function LocationPickerField({
                 </button>
               ))}
             </div>
+            )
           )}
         </div>
       )}
