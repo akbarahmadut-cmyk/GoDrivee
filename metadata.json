@@ -1,0 +1,8 @@
+{
+  "name": "GoDrive",
+  "description": "Aplikasi layanan harian terpadu untuk transportasi, kuliner, belanja, kurir barang, dan sedekah di Kahu, Kabupaten Bone.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
