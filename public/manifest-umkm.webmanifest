@@ -1,0 +1,33 @@
+{
+  "id": "/umkm",
+  "name": "GoDrive UMKM",
+  "short_name": "GD UMKM",
+  "description": "Aplikasi mitra usaha (UMKM) GoDrive.",
+  "start_url": "/umkm",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "id",
+  "theme_color": "#FF7A1A",
+  "background_color": "#F5F7F7",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

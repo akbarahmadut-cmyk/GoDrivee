@@ -510,6 +510,36 @@ export function GoogleRouteMap({
   const fallbackCenter = origin.coords ??
     destination.coords ?? { lat: -5.0, lng: 120.15 };
 
+  const fallbackDistanceKm =
+    origin.coords && destination.coords
+      ? Math.max(0.8, haversineKm(origin.coords, destination.coords) * 1.3)
+      : 1.8;
+  const fallbackDurationMin = Math.max(2, Math.ceil(fallbackDistanceKm * 3 + 2));
+
+  useEffect(() => {
+    if (
+      !mapsAvailable ||
+      apiStatus === APILoadingStatus.FAILED ||
+      apiStatus === APILoadingStatus.AUTH_FAILURE
+    ) {
+      if (origin.coords && destination.coords) {
+        handleRouteComputed({
+          distanceKm: fallbackDistanceKm,
+          durationMinutes: fallbackDurationMin,
+          path: [origin.coords, destination.coords],
+        });
+      }
+    }
+  }, [
+    mapsAvailable,
+    apiStatus,
+    origin.coords,
+    destination.coords,
+    fallbackDistanceKm,
+    fallbackDurationMin,
+    handleRouteComputed,
+  ]);
+
   if (
     !mapsAvailable ||
     apiStatus === APILoadingStatus.FAILED ||
@@ -521,28 +551,61 @@ export function GoogleRouteMap({
       travelMode === 'DRIVING' ? 'driving' : 'two-wheeler'
     );
     return (
-      <div
-        className={`w-full min-h-[224px] ${heightClass} rounded-2xl border border-[#DCE2E4] bg-[#EDF2F0] flex flex-col items-center justify-center p-5 text-center space-y-2.5`}
-      >
-        <div className="text-sm font-semibold text-[#172124]">
-          {!mapsAvailable
-            ? 'Peta interaktif Google Maps belum aktif'
-            : 'Peta Google Maps tidak dapat dimuat'}
+      <div className="rounded-2xl overflow-hidden border border-[#DFE6E4] bg-[#1E2A2E] relative">
+        <div className={`relative w-full min-h-[224px] ${heightClass} overflow-hidden`}>
+          <svg
+            className="absolute inset-0 w-full h-full opacity-70"
+            preserveAspectRatio="xMidYMid slice"
+            viewBox="0 0 600 320"
+          >
+            <defs>
+              <pattern id="route-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+                <rect width="60" height="60" fill="#22312F" />
+                <rect x="4" y="4" width="52" height="52" rx="5" fill="#26383A" />
+              </pattern>
+            </defs>
+            <rect width="600" height="320" fill="url(#route-grid)" />
+            <path d="M-20 120 C 180 80, 320 220, 620 140" stroke="#364C4B" strokeWidth="18" fill="none" />
+            <path d="M220 -20 C 260 110, 200 220, 310 340" stroke="#364C4B" strokeWidth="14" fill="none" />
+            <path
+              d="M130 220 C 240 210, 340 115, 470 95"
+              stroke={outOfArea ? '#D9383E' : '#0F9D8A'}
+              strokeWidth="5"
+              strokeDasharray="10 7"
+              fill="none"
+            />
+            <circle cx="130" cy="220" r="10" fill="#0F9D8A" stroke="#fff" strokeWidth="3" />
+            <circle cx="470" cy="95" r="10" fill="#FF7A1A" stroke="#fff" strokeWidth="3" />
+          </svg>
+
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+            <span className="px-3 py-1.5 rounded-xl bg-[#172124]/90 text-white text-xs font-semibold truncate max-w-[65%]">
+              {origin.label} → {destination.label}
+            </span>
+            <a
+              href={externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-h-[34px] px-3 py-1.5 rounded-xl bg-white text-[#0B7A6B] text-xs font-bold inline-flex items-center gap-1 shadow-sm shrink-0"
+            >
+              Google Maps <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 text-xs text-white">
+            <div className="px-3 py-1.5 rounded-xl bg-[#172124]/90 flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0F9D8A]" /> Jemput
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#FF7A1A]" /> Tujuan
+              </span>
+            </div>
+            <span className="px-3 py-1.5 rounded-xl bg-[#0F9D8A] font-bold font-num">
+              {fallbackDistanceKm.toFixed(1)} km · ± {fallbackDurationMin} mnt
+            </span>
+          </div>
         </div>
-        <p className="text-xs text-[#5B676D] max-w-sm">
-          {!mapsAvailable
-            ? 'Aktifkan Google Maps Platform pada pengaturan applet atau muat ulang halaman untuk menampilkan peta rute.'
-            : 'Periksa koneksi internet atau konfigurasi API key Google Maps Platform.'}
-        </p>
-        <a
-          href={externalUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="min-h-[40px] px-4 py-2 rounded-xl bg-white border border-[#DCE2E4] hover:bg-[#FAFDFC] text-xs font-semibold text-[#0B7A6B] inline-flex items-center gap-1.5 transition-colors"
-        >
-          Lihat rute di Google Maps
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
       </div>
     );
   }

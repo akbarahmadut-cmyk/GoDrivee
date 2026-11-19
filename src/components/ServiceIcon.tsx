@@ -1,5 +1,5 @@
 import {
-  Bike,
+  Motorbike,
   Car,
   UtensilsCrossed,
   ShoppingBag,
@@ -29,7 +29,7 @@ export function ServiceIcon({
 }) {
   switch (id) {
     case 'bike':
-      return <Bike className={className} strokeWidth={2} />;
+      return <Motorbike className={className} strokeWidth={2} />;
     case 'car':
       return <Car className={className} strokeWidth={2} />;
     case 'food':

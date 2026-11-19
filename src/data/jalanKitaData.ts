@@ -1,6 +1,6 @@
 export type ServiceId = 'bike' | 'car' | 'food' | 'shop' | 'pickup' | 'sedekah';
 
-export type RootTab = 'home' | 'act' | 'acc';
+export type RootTab = 'home' | 'act' | 'acc' | 'profile';
 
 export interface LatLngPoint {
   lat: number;
@@ -41,13 +41,22 @@ export interface ServiceMeta {
   tintText: string;
 }
 
+export interface RestaurantMenuItem {
+  name: string;
+  price: number;
+  image?: string;
+  images?: string[];
+  description?: string;
+}
+
 export interface Restaurant {
   id: string;
   name: string;
   category: string;
   eta: string;
   searchQuery: string;
-  items: { name: string; price: number }[];
+  image?: string;
+  items: RestaurantMenuItem[];
 }
 
 export interface ShopProduct {
@@ -150,7 +159,7 @@ export const DRIVER_OFFSET_KM: [number, number][] = [
 export const SERVICES: ServiceMeta[] = [
   {
     id: 'bike',
-    name: 'Go Bike',
+    name: 'Go Ride',
     tagline: 'Ojek cepat dalam kecamatan',
     tintBg: 'bg-[#E3F5F2]',
     tintText: 'text-[#0B7A6B]',
@@ -192,6 +201,76 @@ export const SERVICES: ServiceMeta[] = [
   },
 ];
 
+function makeDishIllustration(
+  title: string,
+  bgFrom: string,
+  bgTo: string,
+  accent: string,
+  kind: 'soup' | 'grill' | 'drink' | 'banana' | 'chicken' | 'rice'
+): string {
+  const artwork: Record<typeof kind, string> = {
+    soup: `
+      <ellipse cx="100" cy="115" rx="62" ry="26" fill="#FFFFFF" opacity="0.95"/>
+      <ellipse cx="100" cy="110" rx="54" ry="20" fill="${accent}"/>
+      <circle cx="84" cy="108" r="9" fill="#6B3410"/>
+      <circle cx="106" cy="113" r="10" fill="#7C3F16"/>
+      <circle cx="118" cy="105" r="8" fill="#5A2B0C"/>
+      <circle cx="92" cy="102" r="4" fill="#22C55E"/>
+      <circle cx="110" cy="103" r="4" fill="#22C55E"/>
+      <path d="M50 115 Q100 155 150 115" fill="#F1F5F9"/>
+    `,
+    grill: `
+      <ellipse cx="100" cy="118" rx="64" ry="24" fill="#FFF7ED"/>
+      <rect x="60" y="96" width="78" height="16" rx="8" fill="#5C240E" transform="rotate(-8 100 104)"/>
+      <rect x="64" y="110" width="74" height="16" rx="8" fill="#7C2D12" transform="rotate(6 100 118)"/>
+      <circle cx="80" cy="102" r="3" fill="#FDE047"/>
+      <circle cx="118" cy="114" r="3.5" fill="#22C55E"/>
+    `,
+    drink: `
+      <rect x="74" y="64" width="52" height="78" rx="10" fill="#FFFFFF" opacity="0.92"/>
+      <rect x="78" y="76" width="44" height="62" rx="8" fill="${accent}"/>
+      <rect x="84" y="82" width="12" height="12" rx="3" fill="#FFFFFF" opacity="0.7"/>
+      <rect x="102" y="86" width="12" height="12" rx="3" fill="#FFFFFF" opacity="0.7"/>
+      <path d="M108 46 L98 84" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
+    `,
+    banana: `
+      <ellipse cx="100" cy="122" rx="64" ry="22" fill="#FFFFFF" opacity="0.95"/>
+      <path d="M58 116 Q100 84 142 114 Q102 132 58 116 Z" fill="#FACC15"/>
+      <path d="M66 113 Q100 96 134 113" stroke="${accent}" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <circle cx="88" cy="108" r="3.5" fill="#FEF08A"/>
+      <circle cx="112" cy="108" r="3.5" fill="#FEF08A"/>
+    `,
+    chicken: `
+      <ellipse cx="100" cy="120" rx="64" ry="24" fill="#FFFFFF" opacity="0.95"/>
+      <path d="M64 114 Q92 78 128 102 Q142 118 114 126 Q80 130 64 114 Z" fill="#D97706"/>
+      <path d="M76 106 Q102 90 120 110" stroke="${accent}" stroke-width="9" stroke-linecap="round" fill="none"/>
+      <circle cx="95" cy="106" r="3" fill="#FEF08A"/>
+      <circle cx="108" cy="103" r="3" fill="#22C55E"/>
+    `,
+    rice: `
+      <ellipse cx="100" cy="122" rx="60" ry="20" fill="#E2E8F0"/>
+      <path d="M58 120 Q100 72 142 120 Z" fill="#FFFFFF"/>
+      <circle cx="96" cy="96" r="2.5" fill="#22C55E"/>
+      <circle cx="106" cy="99" r="2.5" fill="#16A34A"/>
+    `,
+  };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 175" width="400" height="350">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${bgFrom}"/>
+        <stop offset="100%" stop-color="${bgTo}"/>
+      </linearGradient>
+    </defs>
+    <rect width="200" height="175" fill="url(#g)"/>
+    <circle cx="165" cy="30" r="38" fill="#FFFFFF" opacity="0.12"/>
+    <circle cx="30" cy="150" r="45" fill="#FFFFFF" opacity="0.1"/>
+    ${artwork[kind]}
+    <rect x="14" y="14" width="172" height="24" rx="12" fill="#000000" opacity="0.28"/>
+    <text x="100" y="30" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="11" font-weight="700">${title}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export const RESTAURANTS: Restaurant[] = [
   {
     id: 'f1',
@@ -199,11 +278,32 @@ export const RESTAURANTS: Restaurant[] = [
     category: 'Coto',
     eta: '15 mnt',
     searchQuery: 'Pasar Palattae, Kahu, Kabupaten Bone, Sulawesi Selatan',
+    image: makeDishIllustration('Coto Bugis Daeng', '#9A3412', '#C2410C', '#B45309', 'soup'),
     items: [
-      { name: 'Coto Daging', price: 28000 },
-      { name: 'Coto + Ketupat', price: 32000 },
-      { name: 'Konro Bakar', price: 55000 },
-      { name: 'Es Teh', price: 6000 },
+      {
+        name: 'Coto Daging',
+        price: 28000,
+        description: 'Kuah rempah khas Bugis dengan potongan daging sapi empuk',
+        image: makeDishIllustration('Coto Daging Sapi', '#9A3412', '#EA580C', '#B45309', 'soup'),
+      },
+      {
+        name: 'Coto + Ketupat',
+        price: 32000,
+        description: 'Paket lengkap Coto Daging hangat + 2 ketupat pandan',
+        image: makeDishIllustration('Coto + Ketupat', '#7C2D12', '#C2410C', '#92400E', 'soup'),
+      },
+      {
+        name: 'Konro Bakar',
+        price: 55000,
+        description: 'Iga sapi bakar bumbu kacang & kuah kaldu rempah',
+        image: makeDishIllustration('Konro Bakar Spesial', '#451A03', '#9A3412', '#78350F', 'grill'),
+      },
+      {
+        name: 'Es Teh',
+        price: 6000,
+        description: 'Es teh manis segar ukuran jumbo',
+        image: makeDishIllustration('Es Teh Manis', '#B45309', '#F59E0B', '#D97706', 'drink'),
+      },
     ],
   },
   {
@@ -212,10 +312,26 @@ export const RESTAURANTS: Restaurant[] = [
     category: 'Jajanan',
     eta: '10 mnt',
     searchQuery: 'Pasar Palattae, Kahu, Kabupaten Bone, Sulawesi Selatan',
+    image: makeDishIllustration('Pisang Epe Palattae', '#B45309', '#D97706', '#78350F', 'banana'),
     items: [
-      { name: 'Pisang Epe Coklat', price: 15000 },
-      { name: 'Pisang Epe Keju', price: 18000 },
-      { name: 'Es Pisang Ijo', price: 14000 },
+      {
+        name: 'Pisang Epe Coklat',
+        price: 15000,
+        description: 'Pisang kepok bakar pipih siram gula merah & coklat lumer',
+        image: makeDishIllustration('Pisang Epe Coklat', '#78350F', '#B45309', '#451A03', 'banana'),
+      },
+      {
+        name: 'Pisang Epe Keju',
+        price: 18000,
+        description: 'Pisang epe hangat dengan taburan keju parut melimpah',
+        image: makeDishIllustration('Pisang Epe Keju', '#B45309', '#F59E0B', '#FEF08A', 'banana'),
+      },
+      {
+        name: 'Es Pisang Ijo',
+        price: 14000,
+        description: 'Pisang balut adonan hijau pandan, bubur sumsum & sirup merah',
+        image: makeDishIllustration('Es Pisang Ijo', '#0F766E', '#10B981', '#F43F5E', 'drink'),
+      },
     ],
   },
   {
@@ -224,11 +340,32 @@ export const RESTAURANTS: Restaurant[] = [
     category: 'Ayam',
     eta: '20 mnt',
     searchQuery: 'Kantor Camat Kahu, Kabupaten Bone, Sulawesi Selatan',
+    image: makeDishIllustration('Ayam Geprek Kita', '#B91C1C', '#EF4444', '#DC2626', 'chicken'),
     items: [
-      { name: 'Geprek Original', price: 20000 },
-      { name: 'Geprek Keju', price: 24000 },
-      { name: 'Nasi Putih', price: 5000 },
-      { name: 'Es Jeruk', price: 7000 },
+      {
+        name: 'Geprek Original',
+        price: 20000,
+        description: 'Ayam crispy geprek sambal bawang pedas level 1-5',
+        image: makeDishIllustration('Ayam Geprek Original', '#991B1B', '#DC2626', '#EF4444', 'chicken'),
+      },
+      {
+        name: 'Geprek Keju',
+        price: 24000,
+        description: 'Ayam geprek pedas dengan topping saus keju gurih',
+        image: makeDishIllustration('Ayam Geprek Keju', '#B45309', '#EA580C', '#FACC15', 'chicken'),
+      },
+      {
+        name: 'Nasi Putih',
+        price: 5000,
+        description: 'Nasi putih pulen hangat',
+        image: makeDishIllustration('Nasi Putih Hangat', '#0F766E', '#14B8A6', '#FFFFFF', 'rice'),
+      },
+      {
+        name: 'Es Jeruk',
+        price: 7000,
+        description: 'Perasan jeruk segar dingin',
+        image: makeDishIllustration('Es Jeruk Segar', '#C2410C', '#FB923C', '#F97316', 'drink'),
+      },
     ],
   },
 ];

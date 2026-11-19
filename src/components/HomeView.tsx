@@ -39,12 +39,6 @@ export function HomeView({
         {/* Hero Canvas */}
         <section className="lg:col-span-8 bg-gradient-to-br from-[#0F9D8A] to-[#0B7A6B] text-white rounded-2xl lg:rounded-3xl p-5 sm:p-7 flex flex-col justify-between relative overflow-hidden">
           <div className="space-y-2 max-w-xl">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-white/85">
-              <MapPin className="w-4 h-4 shrink-0" />
-              <span>
-                Area layanan · Radius {SERVICE_RADIUS_KM} km dari {SERVICE_CENTER}
-              </span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-balance">
               GoDrive
             </h1>

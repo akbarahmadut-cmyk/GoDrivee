@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
-import { ArrowLeft, Home, ReceiptText, Wallet } from 'lucide-react';
+import { ArrowLeft, Home, ReceiptText, UserRound, Wallet } from 'lucide-react';
 import {
   DRIVER_OFFSET_KM,
   DRIVER_ROSTER,
@@ -28,7 +28,7 @@ import {
 import { usePresetPlacesResolver } from './hooks/usePlacesResolver';
 import { HomeView } from './components/HomeView';
 import { RideView } from './components/RideView';
-import { FoodListView, RestaurantMenuView } from './components/FoodView';
+import { FoodListView, RestaurantMenuView, getAvailableRestaurants } from './components/FoodView';
 import { ShopView } from './components/ShopView';
 import { CheckoutView } from './components/CheckoutView';
 import { PickupView, type PickupDraft } from './components/PickupView';
@@ -36,6 +36,10 @@ import { SedekahListView, CampaignDonateView } from './components/SedekahView';
 import { TrackOrderView } from './components/TrackOrderView';
 import { ActivityView } from './components/ActivityView';
 import { WalletView } from './components/WalletView';
+import { AccountView } from './components/AccountView';
+import DriverApp from './apps/DriverApp';
+import UmkmApp from './apps/UmkmApp';
+import SuperAdminApp from './apps/SuperAdminApp';
 import { OfflineIndicator } from './components/PWAControls';
 import { MapsAvailabilityContext } from './components/GoogleRouteMap';
 import { useOrderNotifications } from './hooks/useOrderNotifications';
@@ -77,6 +81,7 @@ function JalanKitaShell({
   const [walletTx, setWalletTx] = useState<WalletTransaction[]>([]);
 
   const [tab, setTab] = useState<RootTab>('home');
+  const [partnerMode, setPartnerMode] = useState<'umkm' | 'driver' | 'admin' | null>(null);
   const [stack, setStack] = useState<ViewRoute[]>([]);
 
   const [rideChoices, setRideChoices] = useState<{
@@ -403,7 +408,7 @@ function JalanKitaShell({
     total: number,
     usedPromo: boolean
   ) => {
-    const resto = RESTAURANTS.find((r) => r.id === foodCart.restaurantId);
+    const resto = getAvailableRestaurants().find((r) => r.id === foodCart.restaurantId);
     const originPresetId =
       kind === 'food' && resto?.id === 'f3'
         ? PRESET_PLACES[1].id
@@ -519,12 +524,12 @@ function JalanKitaShell({
   const getSubViewTitle = (route: ViewRoute): string => {
     switch (route.view) {
       case 'ride':
-        return route.service === 'bike' ? 'Go Bike' : 'Go Car';
+        return route.service === 'bike' ? 'Go Ride' : 'Go Car';
       case 'food':
         return 'Go Food';
       case 'menu':
         return (
-          RESTAURANTS.find((r) => r.id === route.restaurantId)?.name ?? 'Menu'
+          getAvailableRestaurants().find((r) => r.id === route.restaurantId)?.name ?? 'Menu'
         );
       case 'shop':
         return 'Go Shop';
@@ -542,6 +547,24 @@ function JalanKitaShell({
         return 'GoDrive';
     }
   };
+
+  if (partnerMode === 'driver') {
+    return <DriverApp onBack={() => setPartnerMode(null)} />;
+  }
+  if (partnerMode === 'umkm') {
+    return <UmkmApp onBack={() => setPartnerMode(null)} />;
+  }
+  if (partnerMode === 'admin') {
+    return (
+      <SuperAdminApp
+        customerOrders={orders}
+        customerWallet={wallet}
+        givingTotal={giving}
+        campaigns={campaigns}
+        onBack={() => setPartnerMode(null)}
+      />
+    );
+  }
 
   const renderMainContent = () => {
     if (currentRoute.view === 'root') {
@@ -564,6 +587,17 @@ function JalanKitaShell({
             orders={orders}
             onOpenOrder={(orderId) => pushRoute({ view: 'track', orderId })}
             onGoHome={() => switchRootTab('home')}
+          />
+        );
+      }
+      if (tab === 'profile') {
+        return (
+          <AccountView
+            balance={wallet}
+            orderCount={orders.length}
+            onSwitchTab={switchRootTab}
+            onOpenSedekah={() => setStack([{ view: 'sedekah' }])}
+            onOpenPartner={(kind) => setPartnerMode(kind)}
           />
         );
       }
@@ -645,7 +679,7 @@ function JalanKitaShell({
         );
       case 'menu': {
         const resto =
-          RESTAURANTS.find((r) => r.id === currentRoute.restaurantId) ??
+          getAvailableRestaurants().find((r) => r.id === currentRoute.restaurantId) ??
           RESTAURANTS[0];
         const quantities =
           foodCart.restaurantId === resto.id ? foodCart.items : {};
@@ -686,7 +720,7 @@ function JalanKitaShell({
         const deliveryLoc = resolveChoice(deliveryChoice);
         if (kind === 'food') {
           const resto =
-            RESTAURANTS.find((r) => r.id === foodCart.restaurantId) ??
+            getAvailableRestaurants().find((r) => r.id === foodCart.restaurantId) ??
             RESTAURANTS[0];
           const lineItems = resto.items
             .map((item, idx) => ({
@@ -855,30 +889,6 @@ function JalanKitaShell({
         </div>
       )}
 
-      {/* Non-blocking Maps key notice with hard-reload / SW cache refresh */}
-      {mapsMissing && !mapsNoticeDismissed && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-950 px-4 py-2 text-xs md:text-sm flex flex-wrap items-center justify-center gap-2.5">
-          <span>
-            Kunci Google Maps belum terbaca di sesi ini. Layanan Go Food, Go Shop, Go Sedekah, dan Dompet tetap dapat digunakan.
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onForceRefresh}
-              className="px-3 py-1 rounded-lg bg-amber-900 text-white text-xs font-semibold hover:bg-amber-800 transition-colors cursor-pointer"
-            >
-              Muat Ulang
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapsNoticeDismissed(true)}
-              className="px-2 py-1 rounded-lg text-xs font-medium text-amber-900 hover:bg-amber-100 transition-colors cursor-pointer"
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Desktop 3-Zone Top Bar */}
       <header className="hidden md:block sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#E4E8EA]">
@@ -927,6 +937,17 @@ function JalanKitaShell({
               }`}
             >
               Dompet
+            </button>
+            <button
+              type="button"
+              onClick={() => switchRootTab('profile')}
+              className={`py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                tab === 'profile' && !isSubView
+                  ? 'text-[#0B7A6B] font-semibold border-b-2 border-[#0F9D8A]'
+                  : 'text-[#5B676D] hover:text-[#172124]'
+              }`}
+            >
+              Akun
             </button>
             <button
               type="button"
@@ -998,13 +1019,14 @@ function JalanKitaShell({
       {/* Mobile Fixed Bottom Thumb Navigation */}
       <nav
         aria-label="Navigasi bawah"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E4E8EA] grid grid-cols-3 h-16 pb-safe"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E4E8EA] grid grid-cols-4 h-16 pb-safe"
       >
         {(
           [
             ['home', 'Beranda', Home],
             ['act', 'Aktivitas', ReceiptText],
             ['acc', 'Dompet', Wallet],
+            ['profile', 'Akun', UserRound],
           ] as const
         ).map(([key, label, Icon]) => {
           const active = tab === key && !isSubView;
